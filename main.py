@@ -72,7 +72,7 @@ def render_content(tab):
         ])
     elif tab == 'tables':
         ## import csv and prep it for viewingevents.data[::-1]
-        events = pd.read_csv("Baby_Events.csv")[::-1].iloc[0:5]
+        events = pd.read_csv("Baby_Events.csv")[::-1].iloc[0:25]
         return html.Div([
             html.H3('Last 50 events'),
             dash_table.DataTable(
