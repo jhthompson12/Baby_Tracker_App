@@ -1,0 +1,12 @@
+[Unit]
+Description=Baby Tracker Web App
+After=network.target
+
+[Service]
+User=pi
+ExecStart=/home/pi/Baby_Tracker_App/run_tracker.sh
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
