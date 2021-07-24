@@ -29,6 +29,8 @@ now_botton_style = {
 }
 
 
+events_to_display = 25
+
 app = dash.Dash(
     __name__,
     external_stylesheets=external_stylesheets,
@@ -79,9 +81,9 @@ def render_content(tab):
         ])
     elif tab == 'tables':
         ## import csv and prep it for viewingevents.data[::-1]
-        events = pd.read_csv("Baby_Events.csv")[::-1].iloc[0:25]
+        events = pd.read_csv("Baby_Events.csv")[::-1].iloc[0:events_to_display]
         return html.Div([
-            html.H3('Last 50 events'),
+            html.H3('Last %d events' % events_to_display),
             dash_table.DataTable(
                 id='table-editing-simple',
                 columns=(
@@ -90,7 +92,8 @@ def render_content(tab):
                 data=[
                     {param: row[param] for param in events.columns} for ind, row in events.iterrows()
                 ],
-                editable=True
+                editable=True,
+                row_deletable=True
             ),
             html.P(id='placeholder4')
         ])
@@ -440,11 +443,24 @@ def submit_sleep_event(n_clicks, event_type,  start_sleep_time, end_sleep_time, 
 def table_manually_updated(rows, columns):
     # get the events from the table, reverse the order of the rows
     table_events = pd.DataFrame(rows, columns=[c['name'] for c in columns])[::-1]
-    # import all events from disk
-    all_events = pd.read_csv("Baby_Events.csv")
-    update_all_event = pd.concat([all_events.iloc[:(len(all_events) - len(table_events))], table_events], ignore_index=True)
-    print(table_events)
-    update_all_event.to_csv("Baby_Events.csv", index=False)
+    # import same number of events, that are supposed to be in the table, from disk
+    disk_table_events = pd.read_csv("Baby_Events.csv")[::-1].iloc[0:events_to_display]
+
+    # If table_events had a row deleted
+    if len(table_events) < len(disk_table_events):
+        # find the row that was deleted
+        concat_rows = pd.concat([disk_table_events, table_events])
+        deleted_row = concat_rows[~concat_rows.duplicated(keep=False)]
+        # import all events from disk
+        all_events_plus_deleted = pd.concat([pd.read_csv("Baby_Events.csv"), deleted_row])
+        all_events_plus_deleted[~all_events_plus_deleted.duplicated(keep=False)].to_csv("Baby_Events.csv", index=False)
+
+    else: # the two tables are the same size, so an edit was made
+        # import all events from disk
+        all_events = pd.read_csv("Baby_Events.csv")
+        update_all_event = pd.concat([all_events.iloc[:(len(all_events) - len(table_events))], table_events], ignore_index=True)
+        update_all_event.to_csv("Baby_Events.csv", index=False)
+
     return ''
 
 
