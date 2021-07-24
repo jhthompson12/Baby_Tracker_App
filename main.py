@@ -9,6 +9,13 @@ from math import floor
 from collections import OrderedDict
 
 
+# check if traker file exists, if not, create it
+try:
+    events = pd.read_csv("Baby_Events.csv")
+except IOError as e:
+    pd.DataFrame(columns=["Event Type", "Start", "Duration", "Source", "Ounces",
+                          "Size", "Quality", "Comment"]).to_csv("Baby_Events.csv", index=False)
+
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 submit_button_style = {
