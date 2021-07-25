@@ -52,7 +52,10 @@ app.layout = html.Div([
     ]),
     html.Div(id='tab-content'),
     # create store objects to store event inputs
-    html.Div([dcc.Store(id='%s-store' % name, data={"value": ""}) for name in store_id_prefix]) #, storage_type='session',
+    html.Div([dcc.Store(id='%s-store' % name, data={"value": ""}) for name in store_id_prefix]), #, storage_type='session',
+    dcc.Location(id="hidden-page-refresh1", refresh=True),
+    dcc.Location(id="hidden-page-refresh2", refresh=True),
+    dcc.Location(id="hidden-page-refresh3", refresh=True)
 ])
 
 
@@ -206,7 +209,7 @@ def display_available_inputs(event_type, start_feed_time_data, end_feed_time_dat
                 style={'width': '98%', 'height': 50},
             ),
             html.Div(
-                html.A(html.Button('Submit', id='submit-feed-event', style=submit_button_style), href='/'),
+                html.Button('Submit', id='submit-feed-event', style=submit_button_style),
                 style={'width': '98%', 'display': 'flex', 'align-items': 'right', 'justify-content': 'right'}
             )
         ])
@@ -371,8 +374,7 @@ def update_end_sleep_time(n_clicks, end_sleep_time_store):
     return new_end_sleep_time
 
 
-@app.callback([Output('update-start-feed-time', 'n_clicks'),
-               Output('update-end-feed-time', 'n_clicks')],
+@app.callback(Output('hidden-page-refresh1', 'href'),
               Input('submit-feed-event', 'n_clicks'),
               State('event-type', 'value'),
               State('start-feed-time', 'value'),
@@ -391,12 +393,13 @@ def submit_feed_event(n_clicks, event_type, start_feed_time, end_feed_time, food
         event_dict["Comment"] = feed_comment_text
         # append event to disk
         event = pd.DataFrame(event_dict, index=[0])
-        print(event)
         event.to_csv('Baby_Events.csv', mode='a', header=False, index=False)
-    return None, None
+        return "/"
+    else:
+        raise PreventUpdate
 
 
-@app.callback(Output('placeholder2', 'children'),
+@app.callback(Output('hidden-page-refresh2', 'href'),
               Input('submit-potty-event', 'n_clicks'),
               State('potty-time', 'value'),
               State('potty-type', 'value'),
@@ -412,12 +415,13 @@ def submit_potty_event(n_clicks, potty_time, potty_type, potty_comment_text):
         event_dict["Comment"] = potty_comment_text
         # append event to disk
         event = pd.DataFrame(event_dict, index=[0])
-        print(event)
         event.to_csv('Baby_Events.csv', mode='a', header=False, index=False)
-    return ''
+        return '/'
+    else:
+        raise PreventUpdate
 
 
-@app.callback(Output('placeholder3', 'children'),
+@app.callback(Output('hidden-page-refresh3', 'href'),
               Input('submit-sleep-event', 'n_clicks'),
               State('event-type', 'value'),
               State('start-sleep-time', 'value'),
@@ -434,9 +438,10 @@ def submit_sleep_event(n_clicks, event_type, start_sleep_time, end_sleep_time, s
         event_dict["Comment"] = sleep_comment_text
         # append event to disk
         event = pd.DataFrame(event_dict, index=[0])
-        print(event)
         event.to_csv('Baby_Events.csv', mode='a', header=False, index=False)
-    return ''
+        return '/'
+    else:
+        raise PreventUpdate
 
 
 for store_name in store_id_prefix:
@@ -483,4 +488,4 @@ def table_manually_updated(rows, columns):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True, host="0.0.0.0")
+    app.run_server(debug=False, host="0.0.0.0")
