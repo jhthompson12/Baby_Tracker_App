@@ -29,7 +29,7 @@ now_botton_style = {
 }
 
 # the number of rows (events) to display on the table
-events_to_display = 25
+events_to_display = 200
 
 store_id_prefix = ('start-feed-time', 'end-feed-time', 'food-source', 'ounces', 'feed-comment-text', 'potty-time',
                    'potty-type', 'potty-comment-text', 'start-sleep-time', 'end-sleep-time', 'sleep-comment-text')
