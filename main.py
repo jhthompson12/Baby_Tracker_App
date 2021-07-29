@@ -4,6 +4,7 @@ import dash_core_components as dcc
 import dash_table
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
+import plotly.express as px
 from datetime import datetime
 import pandas as pd
 from math import floor
@@ -26,6 +27,13 @@ submit_button_style = {
 now_botton_style = {
     'background-color': '#00def2',
     'color': 'black',
+}
+
+color_dict = {
+    "Poo": "#5e440b",
+    "Pee": "#fcfc11",
+    "Food": "#000991",
+    "Sleep": "#00913e",
 }
 
 # the number of rows (events) to display on the table
@@ -64,6 +72,76 @@ def calc_duration(start, end):
     nd = datetime.strptime(end, "%Y-%m-%d %I:%M %p")
     duration = (nd - st)
     return "%dh %dm" % (floor(duration.total_seconds() / 3600), floor((duration.seconds % 3600) / 60))
+
+def create_gantt_fig2():
+    # import event data
+    gantt_events = pd.read_csv("Baby_Events.csv", parse_dates=[1], infer_datetime_format=True)
+    gantt_events["Duration"] = gantt_events["Duration"].fillna("0h 0m")
+
+    # calculate some things
+    gantt_events["End"] = [gantt_event["Start"] + pd.Timedelta(hours=int(gantt_event["Duration"].split()[0][:-1]),
+                                                               minutes=int(gantt_event["Duration"].split()[-1][:-1])) if
+                           gantt_event["Duration"] != "0h 0m"
+                           else gantt_event["Start"] + pd.Timedelta(minutes=10)
+                           for ind, gantt_event in gantt_events.iterrows()]
+
+    gantt_events["Gantt_Event_Type"] = ["Potty" if event in ["Pee", "Poo"] else event for event in
+                                        gantt_events["Event Type"]]
+    gantt_events["Gantt_Color"] = [color_dict[event] for event in gantt_events["Event Type"]]
+
+    gantt_events["Details"] = [g_event["Event Type"] if g_event["Gantt_Event_Type"] == "Potty"
+                               else "Duration: %s" % g_event["Duration"] if g_event["Gantt_Event_Type"] == "Sleep"
+    else "Source: %s<br />Ounces: %.1f" % (g_event["Source"], g_event["Ounces"]) if (g_event[
+                                                                                         "Gantt_Event_Type"] == "Food") & (
+                                                                                            g_event[
+                                                                                                "Source"] == "Bottle")
+    else "Source: %s<br />Duration: %s" % (g_event["Source"], g_event["Duration"])
+                               for ind, g_event in gantt_events.iterrows()]
+
+    # create a gantt chart from data
+    fig = px.timeline(gantt_events, x_start="Start", x_end="End", y="Gantt_Event_Type", color="Event Type",
+                      color_discrete_map=color_dict,
+                      hover_data={'Start': False,
+                                  'End': False,
+                                  'Gantt_Event_Type': False,
+                                  'Details': True})
+
+    fig.update_layout(
+        yaxis=dict(title="", tickangle=270),
+        xaxis=dict(range=[gantt_events["End"].max() - pd.Timedelta(hours=12), gantt_events["End"].max()],
+                   rangeslider=dict(visible=True),
+                   rangeselector=dict(
+                       buttons=list([
+                           dict(count=6,
+                                label="6h",
+                                step="hour",
+                                stepmode="backward"),
+                           dict(count=12,
+                                label="12h",
+                                step="hour",
+                                stepmode="backward"),
+                           dict(count=1,
+                                label="1d",
+                                step="day",
+                                stepmode="backward"),
+                           dict(count=3,
+                                label="3d",
+                                step="day",
+                                stepmode="backward"),
+                           dict(count=7,
+                                label="1w",
+                                step="day",
+                                stepmode="backward"),
+                           dict(step="all")
+                       ])
+                   ),
+                   type="date"),
+        showlegend=False,
+        margin={'r': 0, 'l': 0},
+        # xaxis_tickformat='%b %-d, %Y %-I:%M %p',
+    )
+
+    return fig
 
 
 @app.callback(Output('tab-content', 'children'),
@@ -110,7 +188,7 @@ def render_content(tab):
         ])
     elif tab == 'visuals':
         return html.Div([
-            html.H3('This will have some graphs / analysis built from the tables')
+            dcc.Graph(id="baby-gantt", figure=create_gantt_fig2())
         ])
 
 
