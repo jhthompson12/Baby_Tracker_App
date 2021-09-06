@@ -4,7 +4,7 @@ import dash_core_components as dcc
 import dash_table
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-import plotly.express as px
+import plotly.figure_factory as ff
 from datetime import datetime
 import pandas as pd
 from math import floor
@@ -42,8 +42,9 @@ events_to_display = 200
 store_id_prefix = ('start-feed-time', 'end-feed-time', 'food-source', 'ounces', 'feed-comment-text', 'potty-time',
                    'potty-type', 'potty-comment-text', 'start-sleep-time', 'end-sleep-time', 'sleep-comment-text')
 
-update_buttons = ('submit-feed-event', 'submit-feed-event', 'submit-feed-event', 'submit-feed-event', 'submit-feed-event',
-                  'submit-potty-event' 'submit-potty-event', 'submit-sleep-event' 'submit-sleep-event' 'submit-sleep-event')
+update_buttons = (
+'submit-feed-event', 'submit-feed-event', 'submit-feed-event', 'submit-feed-event', 'submit-feed-event',
+'submit-potty-event' 'submit-potty-event', 'submit-sleep-event' 'submit-sleep-event' 'submit-sleep-event')
 
 app = dash.Dash(
     __name__,
@@ -60,7 +61,8 @@ app.layout = html.Div([
     ]),
     html.Div(id='tab-content'),
     # create store objects to store event inputs
-    html.Div([dcc.Store(id='%s-store' % name, data={"value": ""}) for name in store_id_prefix]), #, storage_type='session',
+    html.Div([dcc.Store(id='%s-store' % name, data={"value": ""}) for name in store_id_prefix]),
+    # , storage_type='session',
     dcc.Location(id="hidden-page-refresh1", refresh=True),
     dcc.Location(id="hidden-page-refresh2", refresh=True),
     dcc.Location(id="hidden-page-refresh3", refresh=True)
@@ -73,45 +75,78 @@ def calc_duration(start, end):
     duration = (nd - st)
     return "%dh %dm" % (floor(duration.total_seconds() / 3600), floor((duration.seconds % 3600) / 60))
 
-def create_gantt_fig2():
+
+def create_gantt_fig(n_days_back=7):
     # import event data
-    gantt_events = pd.read_csv("Baby_Events.csv", parse_dates=[1], infer_datetime_format=True)
-    gantt_events["Duration"] = gantt_events["Duration"].fillna("0h 0m")
+    baby_events = pd.read_csv("Baby_Events.csv", parse_dates=[1], infer_datetime_format=True)[::-1]
+    baby_events["Duration"] = baby_events["Duration"].fillna("0h 0m")
 
-    # calculate some things
-    gantt_events["End"] = [gantt_event["Start"] + pd.Timedelta(hours=int(gantt_event["Duration"].split()[0][:-1]),
-                                                               minutes=int(gantt_event["Duration"].split()[-1][:-1])) if
-                           gantt_event["Duration"] != "0h 0m"
-                           else gantt_event["Start"] + pd.Timedelta(minutes=10)
-                           for ind, gantt_event in gantt_events.iterrows()]
+    # Only the last n + 1 days to cut down on time
+    baby_events = baby_events[
+        baby_events["Start"] >= pd.Timestamp(baby_events["Start"].max().date() - pd.Timedelta(days=n_days_back + 1))]
 
-    gantt_events["Gantt_Event_Type"] = ["Potty" if event in ["Pee", "Poo"] else event for event in
-                                        gantt_events["Event Type"]]
-    gantt_events["Gantt_Color"] = [color_dict[event] for event in gantt_events["Event Type"]]
+    # break spillover events into two events
+    gantt_events = pd.DataFrame()
+    for ind, event in baby_events.iterrows():
+        if event["Duration"] != "0h 0m":
+            event["End"] = event["Start"] + pd.Timedelta(hours=int(event["Duration"].split()[0][:-1]),
+                                                         minutes=int(event["Duration"].split()[-1][:-1]))
+        else:
+            event["End"] = event["Start"] + pd.Timedelta(minutes=10)
 
-    gantt_events["Details"] = [g_event["Event Type"] if g_event["Gantt_Event_Type"] == "Potty"
-                               else "Duration: %s" % g_event["Duration"] if g_event["Gantt_Event_Type"] == "Sleep"
-    else "Source: %s<br />Ounces: %.1f" % (g_event["Source"], g_event["Ounces"]) if (g_event[
-                                                                                         "Gantt_Event_Type"] == "Food") & (
-                                                                                            g_event[
-                                                                                                "Source"] == "Bottle")
-    else "Source: %s<br />Duration: %s" % (g_event["Source"], g_event["Duration"])
-                               for ind, g_event in gantt_events.iterrows()]
+        # check if the event spills over from one day to another
+        if event["Start"].date() != event["End"].date():
+            first_event, second_event = event.copy(), event.copy()
+            first_event["End"] = pd.to_datetime(str(event["Start"].date()) + " 23:59")
+            second_event["Start"] = pd.to_datetime(str(event["End"].date()) + " 00:00")
+            gantt_event = pd.concat([first_event, second_event], axis=1, ignore_index=True).T
+        else:
+            gantt_event = event.to_frame().T
 
-    # create a gantt chart from data
-    fig = px.timeline(gantt_events, x_start="Start", x_end="End", y="Gantt_Event_Type", color="Event Type",
-                      color_discrete_map=color_dict,
-                      hover_data={'Start': False,
-                                  'End': False,
-                                  'Gantt_Event_Type': False,
-                                  'Details': True})
+        # calculate some other things for the gantt chart
+        gantt_event["Start_Date"] = [t.date() for t in gantt_event["Start"]]
+        gantt_event["Start_Gantt_Time"] = [t.strftime('2000-01-01 %H:%M') for t in gantt_event["Start"]]
+        gantt_event["End_Gantt_Time"] = [t.strftime('2000-01-01 %H:%M') for t in gantt_event["End"]]
+        gantt_event["Gantt_Event_Type"] = ["Potty" if event in ["Pee", "Poo"] else event for event in
+                                           gantt_event["Event Type"]]
+        gantt_event["Gantt_Color"] = [color_dict[event] for event in gantt_event["Event Type"]]
+        gantt_event["Gantt_Day"] = [event.strftime("%a, %b %-d") for event in gantt_event["Start_Date"]]  # <br />
 
-    fig.update_layout(
-        yaxis=dict(title="", tickangle=270),
-        xaxis=dict(range=[gantt_events["End"].max() - pd.Timedelta(hours=12), gantt_events["End"].max()],
+        gantt_event["Details"] = [gantt_event["Event Type"] if g_event["Gantt_Event_Type"] == "Potty"
+                                  else "Duration: %s" % g_event["Duration"] if g_event["Gantt_Event_Type"] == "Sleep"
+        else "Source: %s<br />Ounces: %.1f" % (g_event["Source"], g_event["Ounces"]) if (g_event[
+                                                                                             "Gantt_Event_Type"] == "Food") & (
+                                                                                                g_event[
+                                                                                                    "Source"] == "Bottle")
+        else "Source: %s<br />Duration: %s" % (g_event["Source"], g_event["Duration"]) for ind, g_event in
+                                  gantt_event.iterrows()]
+
+        # add the event(s) to a new DF
+        gantt_events = pd.concat([gantt_events, gantt_event])
+
+    # Only the last n days
+    gantt_events = gantt_events[gantt_events["Start"] >= pd.Timestamp(gantt_events["Start"].max().date() - pd.Timedelta(days=n_days_back))]
+
+
+    gantt_data = gantt_events.copy().drop("Start", axis=1).rename(
+        columns={"Gantt_Day": "Task", "Start_Gantt_Time": "Start", "End_Gantt_Time": "Finish"})
+
+    gantt = ff.create_gantt(gantt_data, colors=color_dict, index_col='Event Type', reverse_colors=False,
+                            show_colorbar=True, group_tasks=True)
+
+    gantt.layout.title = None
+    gantt.layout.xaxis.rangeselector = None
+
+    gantt.update_layout(
+        yaxis=dict(title=None),
+        xaxis=dict(range=['2000-01-01 00:00', '2000-01-02 00:00'],
                    rangeslider=dict(visible=True),
                    rangeselector=dict(
                        buttons=list([
+                           dict(count=3,
+                                label="3h",
+                                step="hour",
+                                stepmode="backward"),
                            dict(count=6,
                                 label="6h",
                                 step="hour",
@@ -120,28 +155,19 @@ def create_gantt_fig2():
                                 label="12h",
                                 step="hour",
                                 stepmode="backward"),
-                           dict(count=1,
-                                label="1d",
-                                step="day",
+                           dict(count=24,
+                                label="24h",
+                                step="hour",
                                 stepmode="backward"),
-                           dict(count=3,
-                                label="3d",
-                                step="day",
-                                stepmode="backward"),
-                           dict(count=7,
-                                label="1w",
-                                step="day",
-                                stepmode="backward"),
-                           dict(step="all")
                        ])
                    ),
                    type="date"),
-        showlegend=False,
-        margin={'r': 0, 'l': 0},
-        # xaxis_tickformat='%b %-d, %Y %-I:%M %p',
+        showlegend=True,
+        xaxis_tickformat='%-I:%M %p',
+        margin={'r': 0, 'l': 0}
     )
 
-    return fig
+    return gantt
 
 
 @app.callback(Output('tab-content', 'children'),
@@ -169,7 +195,7 @@ def render_content(tab):
             html.P(id='placeholder3'),
         ])
     elif tab == 'tables':
-        ## import csv and prep it for viewingevents.data[::-1]
+        ## import csv and prep it for viewing
         events = pd.read_csv("Baby_Events.csv")[::-1].iloc[0:events_to_display]
         return html.Div([
             html.H3('Last %d events' % events_to_display),
@@ -188,7 +214,7 @@ def render_content(tab):
         ])
     elif tab == 'visuals':
         return html.Div([
-            dcc.Graph(id="baby-gantt", figure=create_gantt_fig2())
+            dcc.Graph(id="baby-gantt", figure=create_gantt_fig())
         ])
 
 
@@ -205,7 +231,9 @@ def render_content(tab):
               State("start-sleep-time-store", "data"),
               State("end-sleep-time-store", "data"),
               State("sleep-comment-text-store", "data"))
-def display_available_inputs(event_type, start_feed_time_data, end_feed_time_data, food_source_data, ounces_data, feed_comment_text_data, potty_time_data, potty_type_data, potty_comment_text_data, start_sleep_time_data, end_sleep_time_data, sleep_comment_text_data):
+def display_available_inputs(event_type, start_feed_time_data, end_feed_time_data, food_source_data, ounces_data,
+                             feed_comment_text_data, potty_time_data, potty_type_data, potty_comment_text_data,
+                             start_sleep_time_data, end_sleep_time_data, sleep_comment_text_data):
     if event_type == "Food":
         return html.Div([
             html.Div([
@@ -217,7 +245,9 @@ def display_available_inputs(event_type, start_feed_time_data, end_feed_time_dat
                     dcc.Input(
                         id='start-feed-time',
                         type='text',
-                        value=datetime.now().strftime("%Y-%-m-%-d %Y-%m-%-d %-I:%M %p") if start_feed_time_data["value"] == "" else start_feed_time_data["value"],
+                        value=datetime.now().strftime("%Y-%-m-%-d %Y-%m-%-d %-I:%M %p") if start_feed_time_data[
+                                                                                               "value"] == "" else
+                        start_feed_time_data["value"],
                         style={'width': '90%'}
                     ),
                     style={'display': 'inline-block', 'width': '45%'}
@@ -303,7 +333,8 @@ def display_available_inputs(event_type, start_feed_time_data, end_feed_time_dat
                     dcc.Input(
                         id='potty-time',
                         type='text',
-                        value=datetime.now().strftime("%Y-%m-%-d %-I:%M %p") if potty_time_data["value"] == "" else potty_time_data["value"],
+                        value=datetime.now().strftime("%Y-%m-%-d %-I:%M %p") if potty_time_data["value"] == "" else
+                        potty_time_data["value"],
                         style={'width': '90%'}
                     ),
                     style={'display': 'inline-block', 'width': '45%'}
@@ -354,7 +385,9 @@ def display_available_inputs(event_type, start_feed_time_data, end_feed_time_dat
                     dcc.Input(
                         id='start-sleep-time',
                         type='text',
-                        value=datetime.now().strftime("%Y-%m-%-d %-I:%M %p") if start_sleep_time_data["value"] == "" else start_sleep_time_data["value"],
+                        value=datetime.now().strftime("%Y-%m-%-d %-I:%M %p") if start_sleep_time_data[
+                                                                                    "value"] == "" else
+                        start_sleep_time_data["value"],
                         style={'width': '90%'}
                     ),
                     style={'display': 'inline-block', 'width': '45%'}
@@ -524,6 +557,7 @@ def submit_sleep_event(n_clicks, event_type, start_sleep_time, end_sleep_time, s
 
 for store_name in store_id_prefix:
     store = store_name + "-store"
+
 
     @app.callback(Output(store, 'data'),
                   Input(store_name, 'value'),
