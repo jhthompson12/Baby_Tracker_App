@@ -143,10 +143,6 @@ def create_gantt_fig(n_days_back=7):
                    rangeslider=dict(visible=True),
                    rangeselector=dict(
                        buttons=list([
-                           dict(count=3,
-                                label="3h",
-                                step="hour",
-                                stepmode="backward"),
                            dict(count=6,
                                 label="6h",
                                 step="hour",
