@@ -163,6 +163,7 @@ def create_gantt_fig(n_days_back=7):
                    ),
                    type="date"),
         showlegend=True,
+        legend=dict(orientation='h', xanchor="right", x=1, yanchor="bottom", y=1),
         xaxis_tickformat='%-I:%M %p',
         margin={'r': 0, 'l': 0}
     )
@@ -600,4 +601,4 @@ def table_manually_updated(rows, columns):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False, host="0.0.0.0")
+    app.run_server(debug=False, host="0.0.0.0", port=8051)
