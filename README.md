@@ -62,7 +62,19 @@ There are 3 tabs in the app:
 * Create a virtualenv for our project
 
         python3 -m virtualenv env
-
 * Install the required libraries
 
         ./env/bin/pip install -r requirements.txt
+        
+### Create a service for running our app
+* Move the `baby_tracker.service` file to `/etc/systemd/system`
+
+        sudo mv baby_tracker.service /etc/systemd/system
+* Start the service to get our app up and running
+        
+        sudo systemctl start baby_tracker.service
+* If you want the service to start whenever the Raspberry Pi boots (like after a power failure)
+
+        sudo systemctl enable baby_tracker.service
+        
+Now on any device that is connected to the same LAN as the Raspberry Pi, you should be able to open a browser and navigate to `http://Your_Pi's_IP_Address:8050` and see the "Input" tab. Bookmark this URL and / or add a shortcut to it on your phone's home screen and it will feel like it is running a native app! 
