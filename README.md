@@ -1,10 +1,12 @@
 # Baby_Tracker_App
 A locally hosted Python web app to track and visualize baby's eating, sleeping, and potty events. 
 
+
 ## Table of Contents
 * [General info](#general-info)
 * [Dependencies](#dependencies)
 * [Installation](#installation)
+
 
 ## General Info
 I built this web app to help me and my wife track our newborn's sleep, eating, and pooping patterns through the days, weeks, and months. It has been surprisingly helpful to see poo trends, remember how long it's been since baby's last nap, and remember which side she fed on last. The web app is built using [Plotly Dash](https://plotly.com/dash/) which is a great open source tool for quickly creating web apps in nothing but Python!
@@ -12,17 +14,55 @@ I built this web app to help me and my wife track our newborn's sleep, eating, a
 There are 3 tabs in the app: 
 * The "Input" tab is where you input details about an event.
 <p align="center">
-<img src="https://github.com/jhthompson12/Baby_Tracker_App/blob/master/images/input_tab.png?raw=true" width="50%" align="center">
+<img src="https://github.com/jhthompson12/Baby_Tracker_App/blob/master/images/input_tab.png?raw=true" width="35%" align="center">
 </p>
 * The "History" tab shows an editable table with the last 200 events. Here events can be modified or deleted. 
 <p align="center">
-<img src="https://github.com/jhthompson12/Baby_Tracker_App/blob/master/images/history_tab.png?raw=true" width="50%" align="center">
+<img src="https://github.com/jhthompson12/Baby_Tracker_App/blob/master/images/history_tab.png?raw=true" width="35%" align="center">
 </p>
 * The "Analytics" tab currently shows an interactive Gantt chart of the last 7 days of events, but you could add tons of other things here with a little bit of editing. 
 <p align="center">
-<img src="https://github.com/jhthompson12/Baby_Tracker_App/blob/master/images/analytics_tab.png?raw=true" width="50%" align="center">
+<img src="https://github.com/jhthompson12/Baby_Tracker_App/blob/master/images/analytics_tab.png?raw=true" width="35%" align="center">
 </p>
 
+
 ## Dependencies
+### Hardware
+* Raspberry Pi 3 or 4: This project is designed to run on a dedicated GNU/Linux machine that is always on and connected to your Local Area Network. I think most aspects of the app would run quickly on pretty much any Raspberry Pi, but some things, like the loading of the "Analytics" tab can be very slow.
+** With some minor adjustments this could be run on any server, but this project will only describe how to set it up on GNU/Linux
+
+### Software
+* Python 3.6 or higher and mostly these libraries:
+    * [virtualenv](https://pypi.org/project/virtualenv)
+    * [dash](https://plotly.com/dash/) 
+    * [pandas](https://pandas.pydata.org/)
+    * Other library dependencies covered in the [requirements.txt](https://github.com/jhthompson12/Baby_Tracker_App/blob/master/requirements.txt)
+
 
 ## Installation
+### Set up the Raspberry Pi Server
+* Setup the Raspberry Pi on your Local Area Network (LAN). Connect to the Pi either directly with a monitor, mouse, and keyboard or through an SSH session. Open the Pi's terminal if **not** connected with SSH. 
+
+### Clone this project
+* Change directory (cd) into the directory where you want to clone this project. 
+        
+        cd ~
+* This example will clone the directory into the `/home/pi` (~) directory.
+        
+        git clone https://github.com/jhthompson12/Baby_Tracker_App.git
+* Then cd into the project directory
+        
+        cd Baby_Tracker_App
+
+
+### Create a Python Virtual Environment for this project
+* The Pi should already have Python 3 installed, so install virtualenv
+        
+        python3 -m pip install virtualenv
+* Create a virtualenv for our project
+
+        python3 -m virtualenv env
+
+* Install the required libraries
+
+        ./env/bin/pip install -r requirements.txt
